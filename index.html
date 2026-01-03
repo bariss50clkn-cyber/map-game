@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Global Fetih Savaşı</title>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #282c34; overflow: hidden; color: white; font-family: sans-serif; }
+        #svg-holder { width: 100vw; height: 100vh; background: #c8c8c8; }
+        path { fill: #d8d8d8; stroke: #666; stroke-width: 0.3; transition: all 0.4s; }
+        
+        /* Aynı kullanıcıya ait komşu sınırları gizle */
+        .same-owner-border { stroke-width: 0 !important; }
+
+        .ui-panel { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 10px; z-index: 1000; border: 1px solid #444; }
+        .user-label { font-size: 6px; font-weight: bold; fill: white; text-shadow: 1px 1px 1px black; pointer-events: none; }
+        #alert-msg { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); font-size: 24px; font-weight: bold; z-index: 2000; display: none; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div id="alert-msg"></div>
+<div class="ui-panel">
+    <div style="color:#4ade80">SAVAŞ KODU AKTİF 🟢</div>
+    <div id="stats" style="font-size:12px">Toplam Fetih: 0</div>
+    <div id="log" style="font-size:11px; color:#ffd700; margin-top:5px">Sinyal bekleniyor...</div>
+    <button onclick="executeAttack('GlobalKing', 500)" style="margin-top:10px; cursor:pointer;">Test: 500 Jeton At</button>
+</div>
+
+<div id="svg-holder"></div>
+
+<script>
+    let provinces = [];
+    const userColors = {}; 
+    let totalConquered = 0;
+
+    fetch('map.svg').then(res => res.text()).then(data => {
+        document.getElementById('svg-holder').innerHTML = data;
+        const svg = document.querySelector('svg');
+        svgPanZoom(svg, { zoomEnabled: true, controlIconsEnabled: false, fit: true, center: true });
+        provinces = Array.from(document.querySelectorAll('path, polygon, circle, rect'));
+        provinces.forEach((p, i) => p.id = p.id || 'reg_' + i);
+    });
+
+    function executeAttack(user, amount) {
+        // 1. Kullanıcıya Sabit Renk Ata
+        if (!userColors[user]) {
+            userColors[user] = `hsl(${Math.random() * 360}, 80%, 50%)`;
+        }
+        const color = userColors[user];
+        let power = amount >= 500 ? 50 : Math.ceil(amount / 10);
+
+        // 2. Fetih Gerçekleştir
+        for (let i = 0; i < power; i++) {
+            const unclaimed = provinces.filter(p => p.getAttribute('data-owner') !== user);
+            const target = unclaimed[Math.floor(Math.random() * unclaimed.length)];
+            
+            if (target) {
+                target.style.fill = color;
+                target.setAttribute('data-owner', user);
+                totalConquered++;
+                
+                // 3. İsim Yazdır (Her fethedilen bölgeye)
+                updateLabel(target, user);
+            }
+        }
+
+        // 4. Sınırları Güncelle (Aynı kişinin bölgeleri arasındaki çizgileri sil)
+        provinces.forEach(p => {
+            if(p.getAttribute('data-owner') === user) {
+                p.style.stroke = color; // Sınırı kendi rengi yap (kaybolur)
+                p.style.strokeWidth = "0.1";
+            }
+        });
+
+        document.getElementById('stats').innerText = "Toplam Fetih: " + totalConquered;
+        document.getElementById('log').innerText = user + " saldırdı! +" + power;
+    }
+
+    function updateLabel(el, name) {
+        const svg = el.ownerSVGElement;
+        const bbox = el.getBBox();
+        const oldLabel = svg.querySelector(`.label-${el.id}`);
+        if (oldLabel) oldLabel.remove();
+
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", bbox.x + bbox.width/2);
+        text.setAttribute("y", bbox.y + bbox.height/2);
+        text.setAttribute("class", `user-label label-${el.id}`);
+        text.setAttribute("text-anchor", "middle");
+        text.textContent = name;
+        svg.appendChild(text);
+    }
+
+    // TikFinity Entegrasyonu
+    setInterval(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('user')) {
+            executeAttack(params.get('user'), parseInt(params.get('amount')));
+            window.history.replaceState({}, '', '/');
+        }
+    }, 500);
+</script>
+</body>
+</html>
