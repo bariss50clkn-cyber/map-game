@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Canlı Harita Savaşı - Otomatik</title>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #0b0e14; overflow: hidden; color: white; font-family: sans-serif; }
+        #svg-holder { width: 100vw; height: 100vh; }
+        path, polygon, circle, rect { transition: fill 0.5s ease; stroke: #121418; stroke-width: 0.1; }
+        .ui-panel { position: absolute; top: 15px; left: 15px; background: rgba(15, 20, 30, 0.9); padding: 12px; border-radius: 10px; z-index: 1000; border: 1px solid #444; }
+        #alert-box { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); font-size: 24px; font-weight: bold; color: #ffd700; display: none; z-index: 2000; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div id="alert-box"></div>
+<div class="ui-panel">
+    <div id="status" style="color:#4ade80; font-weight:bold;">OTOMATİK MOD AKTİF 🟢</div>
+    <div id="log" style="font-size:11px; margin-top:5px; color:#aaa;">Sinyal bekleniyor...</div>
+</div>
+<div id="svg-holder"></div>
+
+<script>
+    let provinces = [];
+    const userColors = {};
+
+    // 1. Haritayı Yükle
+    fetch('map.svg').then(res => res.text()).then(data => {
+        document.getElementById('svg-holder').innerHTML = data;
+        const svg = document.querySelector('svg');
+        svgPanZoom(svg, { zoomEnabled: true, controlIconsEnabled: false, fit: true, center: true });
+        provinces = Array.from(document.querySelectorAll('path, polygon, circle, rect'));
+    });
+
+    // 2. Boyama Fonksiyonu
+    const savasTetikle = (user, amount) => {
+        if (!provinces.length) return;
+        if (!userColors[user]) userColors[user] = `hsl(${Math.random() * 360}, 85%, 60%)`;
+
+        let fetihGucu = amount >= 500 ? 100 : Math.ceil(amount / 5);
+        
+        const alertBox = document.getElementById('alert-box');
+        alertBox.innerText = `${user} SALDIRDI!`;
+        alertBox.style.display = 'block';
+        setTimeout(() => alertBox.style.display = 'none', 2000);
+
+        for (let i = 0; i < fetihGucu; i++) {
+            const target = provinces[Math.floor(Math.random() * provinces.length)];
+            target.style.fill = userColors[user];
+        }
+        document.getElementById('log').innerText = "Son: " + user + " (" + amount + ")";
+    };
+
+    // 3. HER SANİYE KONTROL ET (Butona basılmış gibi davranır)
+    setInterval(() => {
+        // TikFinity'den gelen URL parametrelerini oku
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('user')) {
+            const user = urlParams.get('user');
+            const amount = parseInt(urlParams.get('amount') || 1);
+            
+            savasTetikle(user, amount);
+
+            // ÖNEMLİ: İşlem bittikten sonra URL'yi temizle ki her saniye aynı şeyi boyamasın
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }, 1000); // 1000ms = 1 saniye
+</script>
+</body>
+</html>
