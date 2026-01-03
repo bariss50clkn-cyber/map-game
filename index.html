@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Global Fetih Savaşı - CANLI</title>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #282c34; overflow: hidden; color: white; font-family: sans-serif; }
+        #svg-holder { width: 100vw; height: 100vh; background: #c8c8c8; }
+        path { fill: #d8d8d8; stroke: #666; stroke-width: 0.2; transition: all 0.4s; }
+        .ui-panel { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.85); padding: 15px; border-radius: 10px; z-index: 1000; border: 1px solid #444; }
+        .user-label { font-size: 5px; font-weight: bold; fill: white; text-shadow: 1px 1px 1px black; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<div class="ui-panel">
+    <div id="status" style="color:#4ade80; font-weight:bold;">BAĞLANTI BEKLENİYOR... ⏳</div>
+    <div id="stats" style="font-size:12px; margin-top:5px;">Toplam Fetih: 0</div>
+    <div id="log" style="font-size:11px; color:#ffd700; margin-top:5px;">Hediye bekleniyor...</div>
+    <button onclick="executeAttack('Test_User', 500)" style="margin-top:10px; cursor:pointer; padding:5px; border-radius:5px;">El İle Test Et</button>
+</div>
+
+<div id="svg-holder"></div>
+
+<script>
+    let provinces = [];
+    const userColors = {}; 
+    let totalConquered = 0;
+
+    // 1. Haritayı Yükle
+    fetch('map.svg').then(res => res.text()).then(data => {
+        document.getElementById('svg-holder').innerHTML = data;
+        const svg = document.querySelector('svg');
+        svgPanZoom(svg, { zoomEnabled: true, controlIconsEnabled: false, fit: true, center: true });
+        provinces = Array.from(document.querySelectorAll('path, polygon, circle, rect'));
+        provinces.forEach((p, i) => p.id = p.id || 'reg_' + i);
+        document.getElementById('status').innerText = "SİSTEM CANLI 🟢";
+    });
+
+    // 2. Ana Fetih Fonksiyonu
+    function executeAttack(user, amount) {
+        if (!user || user === "{nickname}") return; // Hatalı veriyi engelle
+
+        if (!userColors[user]) {
+            userColors[user] = `hsl(${Math.random() * 360}, 85%, 55%)`;
+        }
+        const color = userColors[user];
+        let power = amount >= 500 ? 50 : Math.ceil(amount / 5);
+
+        for (let i = 0; i < power; i++) {
+            const potential = provinces.filter(p => p.getAttribute('data-owner') !== user);
+            const target = potential[Math.floor(Math.random() * potential.length)];
+            
+            if (target) {
+                target.style.fill = color;
+                target.style.stroke = color; // Sınırları kendi rengi yap (silinmiş gibi görünür)
+                target.style.strokeWidth = "0.05";
+                target.setAttribute('data-owner', user);
+                totalConquered++;
+                addLabel(target, user);
+            }
+        }
+        document.getElementById('stats').innerText = "Toplam Fetih: " + totalConquered;
+        document.getElementById('log').innerText = user + " saldırdı! (" + amount + " Jeton)";
+    }
+
+    function addLabel(el, name) {
+        const svg = el.ownerSVGElement;
+        const bbox = el.getBBox();
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", bbox.x + bbox.width/2);
+        text.setAttribute("y", bbox.y + bbox.height/2);
+        text.setAttribute("class", "user-label");
+        text.setAttribute("text-anchor", "middle");
+        text.textContent = name;
+        svg.appendChild(text);
+    }
+
+    // 3. TIKFINITY DİNLEME (Gelişmiş Yöntem)
+    // Bu kısım hem URL değişimini hem de dış mesajları yakalar
+    function checkSignals() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('user') && params.get('user') !== "{nickname}") {
+            executeAttack(params.get('user'), parseInt(params.get('amount')) || 1);
+            // URL'yi temizle ama sayfa yenileme yapma
+            const newurl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            window.history.pushState({path:newurl},'',newurl);
+        }
+    }
+
+    // Her 300ms'de bir (neredeyse anlık) kontrol et
+    setInterval(checkSignals, 300);
+
+    // Dışarıdan gelen Webview mesajlarını da dinle (TikTok Live Studio için)
+    window.addEventListener('message', (e) => {
+        if (e.data && e.data.user) {
+            executeAttack(e.data.user, e.data.amount);
+        }
+    });
+</script>
+</body>
+</html>
