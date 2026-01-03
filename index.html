@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Harita Savaşı</title>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #0b0e14; overflow: hidden; color: white; }
+        #svg-holder { width: 100vw; height: 100vh; }
+        path { fill: #2a2e35; stroke: #121418; stroke-width: 0.5; transition: fill 0.4s ease; }
+        .info { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; z-index: 100; border: 1px solid #444; font-family: sans-serif; }
+    </style>
+</head>
+<body>
+    <div class="info"><div id="status">Bağlantı Bekleniyor...</div></div>
+    <div id="svg-holder"></div>
+
+    <script>
+        let provinces = [];
+        
+        // Haritayı Yükle
+        fetch('map.svg').then(res => res.text()).then(data => {
+            document.getElementById('svg-holder').innerHTML = data;
+            const svg = document.querySelector('svg');
+            svgPanZoom(svg, { zoomEnabled: true, controlIconsEnabled: false, fit: true, center: true });
+            provinces = Array.from(document.querySelectorAll('path'));
+            document.getElementById('status').innerText = "Sinyal Bekleniyor... 🟢";
+        });
+
+        // TIKFINITY VERİSİNİ YAKALAMA (HER DURUMDA ÇALIŞIR)
+        const boya = () => {
+            if (provinces.length === 0) return;
+            const randomColor = `hsl(${Math.random() * 360}, 80%, 60%)`;
+            const targets = provinces.filter(p => !p.getAttribute('data-owner'));
+            const target = targets.length > 0 ? targets[Math.floor(Math.random() * targets.length)] : provinces[Math.floor(Math.random() * provinces.length)];
+            
+            if (target) {
+                target.style.fill = randomColor;
+                target.setAttribute('data-owner', 'true');
+                document.getElementById('status').innerText = "Hediye Geldi! 🔥";
+                setTimeout(() => { document.getElementById('status').innerText = "Sinyal Bekleniyor... 🟢"; }, 2000);
+            }
+        };
+
+        // TikFinity Webhook tetiklediğinde sayfa "yenileniyor" gibi davranırsa bunu yakalar
+        window.onload = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('user') || window.location.search.length > 1) {
+                boya();
+            }
+        };
+    </script>
+</body>
+</html>
