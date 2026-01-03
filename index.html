@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Global Fetih Savaşı</title>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #282c34; overflow: hidden; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #svg-holder { width: 100vw; height: 100vh; background: #c8c8c8; } /* Harita arka planı gri tonu */
+        svg { width: 100%; height: 100%; }
+        path { fill: #d8d8d8; stroke: #b8b8b8; stroke-width: 0.5; transition: fill 0.6s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.6s ease; }
+        /* Aynı kullanıcıya ait sınırlar daha ince veya şeffaf */
+        path[data-owner][data-owner-next] { stroke-width: 0.1; stroke-opacity: 0.5; } 
+        path[data-owner][data-owner-adjacent="true"] { stroke-width: 0.1; stroke-opacity: 0.5; }
+
+        .ui-panel { position: absolute; top: 15px; left: 15px; background: rgba(15, 20, 30, 0.9); padding: 15px; border-radius: 12px; z-index: 1000; border: 1px solid #333; box-shadow: 0 4px 15px rgba(0,0,0,0.5); min-width: 250px; }
+        #status { color: #4ade80; font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; }
+        #status::before { content: ''; display: inline-block; width: 10px; height: 10px; background: #4ade80; border-radius: 50%; margin-right: 8px; animation: blink 1.5s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+        .log-entry { font-size: 13px; color: #ffd700; margin-top: 8px; border-top: 1px solid #333; padding-top: 8px; max-height: 120px; overflow-y: auto; }
+        .log-entry::-webkit-scrollbar { width: 5px; }
+        .log-entry::-webkit-scrollbar-thumb { background: #555; border-radius: 5px; }
+        .log-entry span { display: block; margin-bottom: 3px; }
+
+        #alert-msg { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); font-size: 32px; font-weight: bold; color: #fff; text-shadow: 0 0 10px rgba(0,0,0,1); pointer-events: none; z-index: 2000; text-align: center; display: none; }
+
+        /* Kullanıcı İsim Etiketi */
+        .user-label {
+            font-size: 10px;
+            font-weight: bold;
+            fill: #fff;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+            pointer-events: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="alert-msg"></div>
+<div class="ui-panel">
+    <div id="status">SAVAŞ KODU AKTİF</div>
+    <div id="stats" style="font-size: 12px; color: #aaa;">Toplam Fetih: 0</div>
+    <div id="log" class="log-entry"><span>Hediye bekleniyor...</span></div>
+    <button onclick="testAttack()" style="margin-top:10px; background:#222; color:#fff; border:1px solid #444; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:10px;">El İle 500 Jeton Testi</button>
+</div>
+
+<div id="svg-holder"></div>
+
+<script>
+    let provinces = [];
+    const userColors = {}; // Kullanıcıya özel renkleri tutar
+    const conqueredProvinces = new Map(); // Hangi bölgenin kime ait olduğunu tutar
+    let totalConqueredCount = 0;
+    const logDiv = document.getElementById('log');
+
+    // Haritayı Yükle ve Başlat
+    fetch('map.svg')
+        .then(res => res.text())
+        .then(data => {
+            const holder = document.getElementById('svg-holder');
+            holder.innerHTML = data;
+            const svg = holder.querySelector('svg');
+            
+            if (svg) {
+                svgPanZoom(svg, { zoomEnabled: true, controlIconsEnabled: false, fit: true, center: true });
+                provinces = Array.from(svg.querySelectorAll('path, polygon, circle, rect'));
+                provinces.forEach(p => p.id = p.id || `p${Math.random().toString(36).substr(2, 9)}`); // Her path'e ID ver
+                console.log("Bulunan parça sayısı:", provinces.length);
+            } else {
+                document.getElementById('status').innerText = "SVG Bulunamadı! 🔴";
+            }
+        })
+        .catch(err => {
+            document.getElementById('status').innerText = "Yükleme Hatası! 🔴";
+            console.error(err);
+        });
+
+    // Kullanıcıya özel renk üretir veya var olanı döner
+    function getUserColor(user) {
+        if (!userColors[user]) {
+            userColors[user] = `hsl(${Math.random() * 360}, 85%, 60%)`;
+        }
+        return userColors[user];
+    }
+
+    // Fetih İşlemi
+    const executeAttack = (user, amount) => {
+        if (!provinces.length) return;
+        
+        const userColor = getUserColor(user);
+        let attackPower = Math.max(1, Math.floor(amount / 10)); // 10 jeton = 1 bölge
+        if (amount >= 500) attackPower = 75; // 500+ jetonda büyük saldırı
+
+        // Görsel uyarı
+        const alertMsg = document.getElementById('alert-msg');
+        alertMsg.innerHTML = `<span style="color:${userColor}">${user}</span> <br> ${amount} Jetonla SALDIRDI!`;
+        alertMsg.style.display = 'block';
+        setTimeout(() => { alertMsg.style.display = 'none'; }, 2500);
+
+        // Fetih logunu güncelle
+        const newLogEntry = document.createElement('span');
+        newLogEntry.innerHTML = `<span style="color:${userColor}">${user}</span> +${attackPower} Bölge (${amount} Jtn)`;
+        logDiv.prepend(newLogEntry); // En üste ekle
+        if (logDiv.children.length > 5) logDiv.lastChild.remove(); // Sadece son 5 logu tut
+
+        let newlyConquered = 0;
+        for (let i = 0; i < attackPower; i++) {
+            let targetProvince = null;
+            
+            // Önce kendi bölgelerinin yanındaki sahipsiz bölgeleri ara
+            const userOwnedProvinces = Array.from(conqueredProvinces.keys()).filter(id => conqueredProvinces.get(id) === user);
+            if (userOwnedProvinces.length > 0) {
+                const adjacentUnclaimed = provinces.filter(p => 
+                    !p.getAttribute('data-owner') && 
+                    isAdjacentToUser(p, userOwnedProvinces) // Kendi bölgene komşu mu?
+                );
+                if (adjacentUnclaimed.length > 0) {
+                    targetProvince = adjacentUnclaimed[Math.floor(Math.random() * adjacentUnclaimed.length)];
+                }
+            }
+
+            // Eğer komşu sahipsiz bulamazsa, rastgele sahipsiz bir bölge
+            if (!targetProvince) {
+                const unclaimed = provinces.filter(p => !p.getAttribute('data-owner'));
+                if (unclaimed.length > 0) {
+                    targetProvince = unclaimed[Math.floor(Math.random() * unclaimed.length)];
+                }
+            }
+            
+            // Hala hedef yoksa, rastgele bir bölgeyi al (önceki sahibini siler)
+            if (!targetProvince) {
+                targetProvince = provinces[Math.floor(Math.random() * provinces.length)];
+            }
+
+            if (targetProvince) {
+                targetProvince.style.fill = userColor;
+                targetProvince.setAttribute('data-owner', user);
+                conqueredProvinces.set(targetProvince.id, user); // Kime ait olduğunu kaydet
+                newlyConquered++;
+            }
+        }
+        totalConqueredCount += newlyConquered;
+        document.getElementById('stats').innerText = `Toplam Fetih: ${totalConqueredCount}`;
+        
+        // Sınırları ve isim etiketlerini güncelle
+        updateMapVisuals();
+    };
+
+    // Harita görsellerini güncelleyen fonksiyon (sınırlar ve isimler)
+    function updateMapVisuals() {
+        // Tüm path'lerin data-owner-adjacent özelliğini temizle
+        provinces.forEach(p => p.removeAttribute('data-owner-adjacent'));
+
+        provinces.forEach(p => {
+            const owner = conqueredProvinces.get(p.id);
+            if (owner) {
+                // Komşu sınırları kontrol et ve incelt
+                const adjacentProvinces = getAdjacentProvinces(p); // Bu fonksiyonu SVG yapısına göre optimize etmek gerekebilir
+                for (const adjP of adjacentProvinces) {
+                    if (conqueredProvinces.get(adjP.id) === owner) {
+                        p.setAttribute('data-owner-adjacent', 'true');
+                        adjP.setAttribute('data-owner-adjacent', 'true'); // Karşıdaki komşuyu da işaretle
+                    }
+                }
+            }
+        });
+
+        // Eski isim etiketlerini kaldır
+        document.querySelectorAll('.user-label').forEach(label => label.remove());
+
+        // Yeni isim etiketlerini ekle (her kullanıcı için bir veya iki rastgele bölgeye)
+        const usersOnMap = Array.from(new Set(conqueredProvinces.values()));
+        usersOnMap.forEach(user => {
+            const userOwned = provinces.filter(p => conqueredProvinces.get(p.id) === user);
+            if (userOwned.length > 0) {
+                // En az bir bölgeye isim etiketi ekle
+                const labelTarget = userOwned[Math.floor(Math.random() * userOwned.length)];
+                addUserNameLabel(labelTarget, user);
+
+                // Eğer çok fazla bölgesi varsa, ikinci bir etiketi daha ekleyebiliriz
+                if (userOwned.length > 20 && Math.random() < 0.5) { // %50 ihtimalle ikinci etiket
+                    const labelTarget2 = userOwned[Math.floor(Math.random() * userOwned.length)];
+                    if (labelTarget2 !== labelTarget) addUserNameLabel(labelTarget2, user);
+                }
+            }
+        });
+    }
+
+    // Kullanıcı adı etiketi ekler
+    function addUserNameLabel(provinceElement, userName) {
+        const bbox = provinceElement.getBBox();
+        const svg = provinceElement.ownerSVGElement;
+        
+        if (!svg) return;
+
+        const textElement = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        textElement.setAttribute("x", bbox.x + bbox.width / 2);
+        textElement.setAttribute("y", bbox.y + bbox.height / 2 + 3); // Yazının dikey ortalaması için 3 ekledik
+        textElement.setAttribute("text-anchor", "middle");
+        textElement.setAttribute("class", "user-label");
+        textElement.textContent = userName;
+        svg.appendChild(textElement);
+    }
+
+    // Bir bölgenin belirli bir kullanıcının bölgelerine komşu olup olmadığını kontrol eder
+    // NOT: Bu fonksiyon, kullandığınız SVG haritasının iç yapısına göre hassas ayar gerektirebilir.
+    // Şimdilik basit bir kontrol yapıyor. Gerçek komşuluk için "id" ve komşuluk listesi gerekebilir.
+    function isAdjacentToUser(province, userOwnedProvinceIds) {
+        // Basit bir yaklaşım: Eğer bölgenin ID'si, kullanıcının bölgelerine komşu olabilecek
+        // bir örüntüye sahipse (örn: "TR-01" ve "TR-02") veya BBox'ları çakışıyorsa.
+        // Daha doğru bir komşuluk tespiti için SVG haritasının topolojisine bakmak gerekir.
+        // Bu, genelde her path'in komşularını bir "adjacency list" içinde tutularak yapılır.
+        
+        // Şimdilik, sadece rastgele bir bölgenin yanında olma ihtimalini artırıyoruz.
+        // Gerçek komşuluk için SVG path'lerinin kesişimlerini kontrol etmek çok karmaşık.
+        // Eğer bu kısım yetersiz gelirse, SVG haritasına özel bir komşuluk listesi eklememiz gerekir.
+        
+        // Alternatif olarak, eğer SVG'nizdeki path'lerin id'leri mantıksal olarak birbirine bağlıysa
+        // (örn: "prov_1", "prov_2"), burada kontrol edilebilir.
+        
+        // Şimdilik, bir bölgenin ID'si varsa ve komşuluk listesi varsa kullan.
+        // Yoksa, sadece rastgeleliği artır.
+        return Math.random() < 0.3; // %30 ihtimalle komşu say
+    }
+
+    // Bir bölgenin komşu bölgelerini bulur (genel amaçlı, SVG yapısına göre optimize edilmeli)
+    function getAdjacentProvinces(province) {
+        const adjacent = [];
+        // Bu kısım, haritanın SVG yapısına bağlıdır. Eğer her path'in bir ID'si varsa
+        // ve bir komşuluk listesi (adjacency list) oluşturulabilirse daha doğru olur.
+        // Şimdilik, sadece yakınındaki rastgele birkaç bölgeyi komşu sayıyoruz.
+        
+        // Gerçek komşuluk tespiti için, her bir path'in bounding box'ını kontrol edip
+        // birbirine yakın olanları veya kesişenleri bulmak gerekir. Bu oldukça yoğun bir işlem.
+        
+        // Basitlik adına, şimdilik rastgele komşular dönüyoruz.
+        // Daha gelişmiş bir komşuluk için, SVG haritanızın nasıl oluşturulduğu önemlidir.
+        for(let i=0; i<3; i++) { // Her prov için 3 rastgele komşu
+            adjacent.push(provinces[Math.floor(Math.random() * provinces.length)]);
+        }
+        return adjacent;
+    }
+
+
+    // TikFinity Sinyal Takibi (URL parametreleri ile)
+    setInterval(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('user')) {
+            const u = params.get('user');
+            const a = parseInt(params.get('amount')) || 1;
+            executeAttack(u, a);
+            window.history.replaceState({}, document.title, "/"); // URL'yi temizle
+        }
+    }, 500); // Her 0.5 saniyede bir URL'yi kontrol et
+
+    // Test Butonu Fonksiyonu
+    function testAttack() {
+        executeAttack("GlobalKing", 500); // Test için 500 jetonluk saldırı
+    }
+</script>
+</body>
+</html>
