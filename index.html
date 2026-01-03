@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Harita Test Modu</title>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #0b0e14; overflow: hidden; color: white; }
+        #svg-holder { width: 100vw; height: 100vh; }
+        /* Haritadaki tüm parçaları boyanabilir hale getirmek için zorla */
+        path, polygon, circle, rect { transition: fill 0.5s ease; cursor: pointer; }
+        .debug-panel { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.9); padding: 15px; border-radius: 8px; z-index: 1000; border: 2px solid #4ade80; font-family: sans-serif; }
+        #alert-box { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 30px; font-weight: bold; color: #ffd700; display: none; z-index: 2000; text-shadow: 2px 2px #000; }
+    </style>
+</head>
+<body>
+    <div class="debug-panel">
+        <div id="status">Sinyal Bekleniyor... 🟢</div>
+        <div id="counter" style="font-size: 12px; color: #aaa;">Gelen Hediye: 0</div>
+        <button onclick="tetikleBoya('Test')" style="margin-top:10px; padding:5px;">El İle Test Et</button>
+    </div>
+    <div id="alert-box">HEDİYE GELDİ! 🔥</div>
+    <div id="svg-holder"></div>
+
+    <script>
+        let provinces = [];
+        let giftCount = 0;
+        
+        // 1. Haritayı Yükle
+        fetch('map.svg').then(res => res.text()).then(data => {
+            document.getElementById('svg-holder').innerHTML = data;
+            const svg = document.querySelector('svg');
+            svgPanZoom(svg, { zoomEnabled: true, controlIconsEnabled: false, fit: true, center: true });
+            
+            // Haritadaki TÜM çizim elemanlarını yakala (path, polygon vb.)
+            provinces = Array.from(document.querySelectorAll('path, polygon, circle, rect'));
+            console.log("Bulunan parça sayısı:", provinces.length);
+        });
+
+        // 2. Boyama Fonksiyonu (Dışarıdan tetiklenir)
+        const tetikleBoya = (isim) => {
+            if (provinces.length === 0) return;
+            
+            giftCount++;
+            document.getElementById('counter').innerText = "Gelen Hediye: " + giftCount;
+            
+            // Ekranda uyarı çıkar
+            const alertBox = document.getElementById('alert-box');
+            alertBox.style.display = 'block';
+            setTimeout(() => { alertBox.style.display = 'none'; }, 1500);
+
+            // Rastgele 5 yer boya (belirgin olsun diye)
+            for(let i=0; i<5; i++) {
+                const renk = `hsl(${Math.random() * 360}, 90%, 60%)`;
+                const hedef = provinces[Math.floor(Math.random() * provinces.length)];
+                hedef.style.fill = renk;
+            }
+        };
+
+        // 3. TikFinity'den gelen URL sinyalini yakala
+        setInterval(() => {
+            if (window.location.search.includes('user=')) {
+                tetikleBoya("Hediye");
+                // URL'yi temizle (sonsuz döngü olmasın)
+                window.history.replaceState({}, document.title, "/");
+            }
+        }, 300);
+    </script>
+</body>
+</html>
